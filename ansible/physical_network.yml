@@ -165,4 +165,4 @@
       command: >-
         {{ tenks_ip_path }} link set dev {{ source_interface }} master {{ tenks_bridge }}
       changed_when: true
-      when: master_result.rc != 0
+      # when: master_result.rc != 0
