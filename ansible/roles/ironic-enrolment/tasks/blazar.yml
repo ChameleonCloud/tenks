@@ -1,0 +1,64 @@
+---
+- name: look up node UUID in ironic
+  command: >-
+    '{{ ironic_virtualenv_path }}/bin/openstack' baremetal node show
+    '{{ node.name }}' -f json
+  register: node_result
+  changed_when: false
+
+- name: set facts for ironic node
+  set_fact:
+    current_ironic_node: "{{ node_result.stdout | from_json }}"
+
+- name: check if host is in blazar already
+  command: >-
+    '{{ ironic_virtualenv_path }}/bin/openstack' reservation host show
+    '{{ current_ironic_node.uuid }}' -f json
+  register: blazar_result
+  failed_when:
+    - blazar_result.rc != 0
+    - '"Unable to find resource with name" not in blazar_result.stderr'
+  changed_when: false
+
+- name: set facts for blazar_host
+  set_fact:
+    blazar_host: "{{ (blazar_result.stdout | from_json) if (blazar_result.rc == 0) else '{}' }}"
+  
+- name: check if blazar host is in placement
+  command: >-
+    '{{ ironic_virtualenv_path }}/bin/openstack' resource provider list --name
+    'blazar_{{ current_ironic_node.uuid }}' -f json
+  register: placement_result
+  failed_when:
+    - placement_result.rc != 0
+  changed_when: false
+
+- name: set facts for placement_blazar_host
+  set_fact:
+    placement_blazar_host: "{{ placement_result.stdout | from_json }}"
+
+
+- name: set facts for blazar_host and placement_host status
+  set_fact:
+    blazar_host_exists: "{{ 'hypervisor_hostname' in blazar_host }}"
+    placement_host_exists: '{{ placement_blazar_host | length == 1}}'
+    
+- name: remove host from placement if not in blazar
+  when: 
+    - not blazar_host_exists
+    - placement_host_exists
+  vars:
+    placement_blazar_uuid: '{{ placement_blazar_host[0].uuid }}'
+  command: >-
+    '{{ ironic_virtualenv_path }}/bin/openstack' resource provider delete
+    '{{ placement_blazar_uuid }}'
+
+- name: Add ironic node as blazar host
+  command: >-
+    '{{ ironic_virtualenv_path }}/bin/openstack' reservation host create
+    --extra 'node_name={{node.name}}'
+    --extra 'node_type={{node.type}}'
+    '{{ current_ironic_node.uuid }}'
+  when:
+    - (node.state | default('present')) == 'present'
+    - not blazar_host_exists
