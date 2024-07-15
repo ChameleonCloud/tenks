@@ -126,10 +126,11 @@
     - blazar
   vars:
     node: "{{ ironic_node }}"
-    node_type: "{{ ironic_node.blazar_config.node_type | default(ironic_node.type) }}"
+    node_type: "{{ ironic_node.ironic_config.blazar_node_type | default(ironic_node.type) }}"
   loop: "{{ ironic_nodes | sort(attribute='name') }}"
   loop_control:
     loop_var: ironic_node
-  # If no blazar_config options were set, this means that blazar enrollment
-  # should not be performed.
-  when: "'blazar_config' in ironic_node"
+  # if blazar_node_type isn't set, don't enroll in blazar
+  when: 
+    - "'ironic_config' in ironic_node"
+    - "'blazar_node_type' in ironic_node.ironic_config"
