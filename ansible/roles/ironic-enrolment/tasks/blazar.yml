@@ -57,7 +57,7 @@
   command: >-
     '{{ ironic_virtualenv_path }}/bin/openstack' reservation host create
     --extra 'node_name={{node.name}}'
-    --extra 'node_type={{node.type}}'
+    --extra 'node_type={{node_type}}'
     '{{ current_ironic_node.uuid }}'
   when:
     - (node.state | default('present')) == 'present'
