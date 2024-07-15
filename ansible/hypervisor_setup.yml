@@ -33,6 +33,7 @@
   when: bridge_type == "openvswitch"
   block:
     - name: Check if ovs-vsctl command is present
+      become: true
       command: ovs-vsctl --version
       register: ovs_vsctl_check
       failed_when: false
